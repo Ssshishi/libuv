@@ -368,6 +368,7 @@ void uv__fsevents_loop_delete(uv_loop_t* loop);
 
 #endif /* defined(__APPLE__) */
 
+// 执行setTimeOut
 UV_UNUSED(static void uv__update_time(uv_loop_t* loop)) {
   /* Use a fast time source if available.  We only need millisecond precision.
    */

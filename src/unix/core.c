@@ -377,6 +377,7 @@ int uv_backend_fd(const uv_loop_t* loop) {
 }
 
 
+// 返回事件循环中是否有任务执行
 static int uv__loop_alive(const uv_loop_t* loop) {
   return uv__has_active_handles(loop) ||
          uv__has_active_reqs(loop) ||
@@ -410,13 +411,15 @@ int uv_loop_alive(const uv_loop_t* loop) {
   return uv__loop_alive(loop);
 }
 
-
+// 第一个参数是 uv_loop_t 事件循环的结构
 int uv_run(uv_loop_t* loop, uv_run_mode mode) {
   int timeout;
   int r;
   int can_sleep;
 
+  // uv_run之前要先提交任务到loop循环体中
   r = uv__loop_alive(loop);
+  // 循环中没有任务执行，即将退出
   if (!r)
     uv__update_time(loop);
 
@@ -427,14 +430,18 @@ int uv_run(uv_loop_t* loop, uv_run_mode mode) {
   if (mode == UV_RUN_DEFAULT) {
     if (r)
       uv__update_time(loop);
-    uv__run_timers(loop);
+    uv__run_timers(loop); 
   }
 
+  // 如果有任务执行，反复执行event-loop队列
   while (r != 0 && loop->stop_flag == 0) {
+    // 能否休息
     can_sleep =
         QUEUE_EMPTY(&loop->pending_queue) && QUEUE_EMPTY(&loop->idle_handles);
-
+    
+    //执行pending回调 处理我们产生IO阶段回调
     uv__run_pending(loop);
+    // 继续执行各种队列
     uv__run_idle(loop);
     uv__run_prepare(loop);
 
@@ -444,6 +451,7 @@ int uv_run(uv_loop_t* loop, uv_run_mode mode) {
 
     uv__metrics_inc_loop_count(loop);
 
+    // poll 队列处理网络， IO 信号 线程池
     uv__io_poll(loop, timeout);
 
     /* Process immediate callbacks (e.g. write_cb) a small fixed number of
@@ -459,6 +467,7 @@ int uv_run(uv_loop_t* loop, uv_run_mode mode) {
     uv__metrics_update_idle_time(loop);
 
     uv__run_check(loop);
+    // 关闭服务器阶段
     uv__run_closing_handles(loop);
 
     uv__update_time(loop);
